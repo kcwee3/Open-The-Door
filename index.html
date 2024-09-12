@@ -5,48 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Open The Door</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
-
         body {
-            font-family: 'Fredoka One', cursive;
-            margin: 0;
-            padding: 0;
-            background-color: #FFD54F;
-            color: #4E342E;
+            font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
         }
         .game-container {
-            background-color: #FFF9C4;
-            border-radius: 20px;
+            background-color: white;
             padding: 20px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            max-width: 800px;
-            width: 95%;
-        }
-        .token-display {
-            font-size: 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             text-align: center;
-            margin: 10px 0;
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
+            max-width: 400px;
             width: 100%;
         }
-        #doorCanvas {
-            width: 300px;
-            height: 300px;
-            border: 5px solid #4E342E;
-            border-radius: 10px;
-            margin: 20px 0;
+        .token-display {
+            font-size: 18px;
+            margin-bottom: 20px;
         }
         .code-input {
             display: flex;
@@ -54,151 +34,57 @@
             margin-bottom: 20px;
         }
         .code-input input {
-            width: 50px;
-            height: 50px;
-            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
             text-align: center;
-            border: 3px solid #4E342E;
-            border-radius: 10px;
-            background-color: #FFECB3;
             margin: 0 5px;
         }
         button {
-            background-color: #FF9800;
+            background-color: #4CAF50;
             color: white;
             border: none;
             padding: 10px 20px;
-            font-size: 18px;
-            border-radius: 10px;
+            font-size: 16px;
             cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #F57C00;
+            border-radius: 4px;
         }
         #message {
-            font-size: 18px;
-            margin: 10px 0;
-            text-align: center;
-        }
-        #timer {
-            font-size: 24px;
-            text-align: center;
-            margin: 10px 0;
-        }
-        .leaderboard, .tasks, .previous-keys {
-            width: 100%;
             margin-top: 20px;
+            font-weight: bold;
         }
-        h2 {
-            color: #FF5722;
-            text-align: center;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
-            margin: 10px 0;
-            text-align: center;
-        }
-        .task-button {
-            background-color: #2196F3;
-            margin: 5px;
-        }
-        .previous-keys {
-            background-color: #FFECB3;
-            border-radius: 10px;
-            padding: 10px;
-            max-height: 150px;
-            overflow-y: auto;
+        #timer, #previousKeys {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <div class="game-container">
-        <h1 style="text-align: center;">Open The Door</h1>
-        <div class="token-display">
-            Your Tokens: <span id="tokenCount">0</span>
-        </div>
-        <div id="doorCanvas"></div>
+        <h1>Open The Door</h1>
+        <div class="token-display">Your Tokens: <span id="tokenCount">0</span></div>
         <div class="code-input">
-            <input type="text" maxlength="1">
-            <input type="text" maxlength="1">
-            <input type="text" maxlength="1">
-            <input type="text" maxlength="1">
-            <input type="text" maxlength="1">
+            <input type="text" maxlength="1" inputmode="numeric">
+            <input type="text" maxlength="1" inputmode="numeric">
+            <input type="text" maxlength="1" inputmode="numeric">
+            <input type="text" maxlength="1" inputmode="numeric">
+            <input type="text" maxlength="1" inputmode="numeric">
         </div>
         <button id="submitGuess">Open</button>
-        <p id="message"></p>
+        <div id="message"></div>
         <div id="timer"></div>
-        
-        <div class="previous-keys">
-            <h2>Previous Keys</h2>
-            <ul id="previousKeysList"></ul>
-        </div>
-        
-        <div class="leaderboard">
-            <h2>Top Players</h2>
-            <ul id="leaderboardList"></ul>
-        </div>
-        
-        <div class="tasks">
-            <h2>Earn More Tokens!</h2>
-            <p>Your Referral Code: <span id="referralCode"></span></p>
-            <button id="copyReferral">Copy Referral Code</button>
-            <p>Refer a friend and get 500 tokens!</p>
-            <button id="likeX" class="task-button">Like our X post (100 tokens)</button>
-            <button id="joinTelegram" class="task-button">Join our Telegram channel (100 tokens)</button>
+        <div id="previousKeys">
+            <h3>Previous Keys</h3>
+            <ul id="keysList"></ul>
         </div>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
+        let tokens = 0;
         let lastAttemptTime = 0;
         const cooldownTime = 600000; // 10 minutes in milliseconds
-        let scene, camera, renderer, door;
-        let tokens = 0;
         let previousKeys = [];
-
-        // Initialize 3D door
-        function init3DDoor() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ alpha: true });
-            renderer.setSize(300, 300);
-            document.getElementById('doorCanvas').appendChild(renderer.domElement);
-
-            // Create a cartoon-style door
-            const doorGeometry = new THREE.BoxGeometry(2, 3, 0.2);
-            const doorMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
-            door = new THREE.Mesh(doorGeometry, doorMaterial);
-            scene.add(door);
-
-            // Add doorknob
-            const knobGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-            const knobMaterial = new THREE.MeshPhongMaterial({ color: 0xFFD700 });
-            const knob = new THREE.Mesh(knobGeometry, knobMaterial);
-            knob.position.set(0.8, 0, 0.1);
-            door.add(knob);
-
-            // Add lighting
-            const light = new THREE.PointLight(0xFFFFFF, 1, 100);
-            light.position.set(0, 0, 5);
-            scene.add(light);
-
-            camera.position.z = 5;
-
-            animate();
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            door.rotation.y = Math.sin(Date.now() * 0.001) * 0.1;
-            renderer.render(scene, camera);
-        }
-
-        init3DDoor();
+        const correctCode = "12345"; // For demonstration; in a real game, this would be generated server-side
 
         document.getElementById('submitGuess').addEventListener('click', submitGuess);
 
@@ -208,11 +94,11 @@
             const currentTime = Date.now();
 
             if (currentTime - lastAttemptTime < cooldownTime) {
-                showMessage('Please wait for the timer to complete before your next attempt.', 'red');
+                showMessage('Please wait before your next attempt.', 'red');
                 return;
             }
 
-            if (guess.length !== 5 || isNaN(guess)) {
+            if (guess.length !== 5 || !/^\d+$/.test(guess)) {
                 showMessage('Please enter a valid 5-digit number.', 'red');
                 return;
             }
@@ -220,22 +106,15 @@
             lastAttemptTime = currentTime;
             updateTimer();
 
-            // Send the guess to the server (mock response for demonstration)
-            setTimeout(() => {
-                const isCorrect = Math.random() < 0.1; // 10% chance of being correct
-                if (isCorrect) {
-                    showMessage('Congratulations! You've opened the door and won 1000 tokens!', 'green');
-                    door.rotation.y = Math.PI / 2; // Open the door
-                    addTokens(1000);
-                    updateLeaderboard({ name: 'You', score: tokens });
-                    // Reset the game
-                    lastAttemptTime = 0;
-                    inputs.forEach(input => input.value = '');
-                } else {
-                    showMessage('Wrong code. Try again when the timer completes.', 'red');
-                }
-                addPreviousKey(guess);
-            }, 1000);
+            if (guess === correctCode) {
+                showMessage('Congratulations! You've opened the door and won 1000 tokens!', 'green');
+                addTokens(1000);
+                inputs.forEach(input => input.value = '');
+            } else {
+                showMessage('Wrong code. Try again when the timer completes.', 'red');
+            }
+            
+            addPreviousKey(guess);
         }
 
         function showMessage(text, color) {
@@ -267,37 +146,14 @@
             document.getElementById('tokenCount').textContent = tokens;
         }
 
-        // Mock leaderboard data
-        const leaderboardData = [
-            { name: 'Alice', score: 5000 },
-            { name: 'Bob', score: 4500 },
-            { name: 'Charlie', score: 4000 },
-            { name: 'David', score: 3500 },
-            { name: 'Eve', score: 3000 }
-        ];
-
-        function updateLeaderboard(newEntry) {
-            leaderboardData.push(newEntry);
-            leaderboardData.sort((a, b) => b.score - a.score);
-            leaderboardData.splice(5); // Keep only top 5
-
-            const leaderboardList = document.getElementById('leaderboardList');
-            leaderboardList.innerHTML = '';
-            leaderboardData.forEach((entry, index) => {
-                const li = document.createElement('li');
-                li.textContent = `${index + 1}. ${entry.name}: ${entry.score} tokens`;
-                leaderboardList.appendChild(li);
-            });
-        }
-
         function addPreviousKey(key) {
             previousKeys.unshift(key);
-            if (previousKeys.length > 10) previousKeys.pop();
+            if (previousKeys.length > 5) previousKeys.pop();
             updatePreviousKeysDisplay();
         }
 
         function updatePreviousKeysDisplay() {
-            const keysList = document.getElementById('previousKeysList');
+            const keysList = document.getElementById('keysList');
             keysList.innerHTML = '';
             previousKeys.forEach(key => {
                 const li = document.createElement('li');
@@ -305,34 +161,6 @@
                 keysList.appendChild(li);
             });
         }
-
-        // Initialize leaderboard
-        updateLeaderboard();
-
-        // Referral code
-        const referralCode = 'DOOR' + Math.random().toString(36).substr(2, 6).toUpperCase();
-        document.getElementById('referralCode').textContent = referralCode;
-
-        document.getElementById('copyReferral').addEventListener('click', () => {
-            navigator.clipboard.writeText(referralCode).then(() => {
-                alert('Referral code copied to clipboard!');
-            });
-        });
-
-        // Social media tasks
-        document.getElementById('likeX').addEventListener('click', () => {
-            // In a real app, you'd verify this action with your server
-            addTokens(100);
-            alert('Thanks for liking our X post! 100 tokens added.');
-            updateLeaderboard({ name: 'You', score: tokens });
-        });
-
-        document.getElementById('joinTelegram').addEventListener('click', () => {
-            // In a real app, you'd verify this action with your server
-            addTokens(100);
-            alert('Thanks for joining our Telegram channel! 100 tokens added.');
-            updateLeaderboard({ name: 'You', score: tokens });
-        });
 
         // Auto-focus next input
         document.querySelectorAll('.code-input input').forEach((input, index) => {
